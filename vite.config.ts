@@ -1,7 +1,9 @@
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { viteCommonjs } from "@originjs/vite-plugin-commonjs"
-
+// import wasm from 'vite-plugin-wasm';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { wasm } from '@rollup/plugin-wasm';
 /**
  * Vite configuration for the application.
  *
@@ -34,6 +36,13 @@ export default defineConfig({
     react(),
     // for dicom-parser
     viteCommonjs(),
+    wasm(),
+    viteStaticCopy({
+      targets: [
+        { src: 'node_modules/@cornerstonejs/tools/dist/esm/workers/polySegConverters.js', dest: './workers/' },
+        // { src: 'node_modules/@cornerstonejs/dicom-image-loader/dist/dynamic-import/*.worker.js', dest: '.' },
+      ],
+    }),
   ],
   server: {
     host: '0.0.0.0',
@@ -45,8 +54,11 @@ export default defineConfig({
   },
   worker: {
     format: "es",
+    plugins: () => [
+      wasm({ sync: ['ICRPolySeg.wasm'] }),
+    ],
     rollupOptions: {
-      external: ["@icr/polyseg-wasm"],
+      external: ["@icr/polyseg-wasm", "itk-wasm", "@itk-wasm/morphological-contour-interpolation"],
     },
-  },
+  }
 })

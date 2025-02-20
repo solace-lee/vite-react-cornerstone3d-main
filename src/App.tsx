@@ -1,7 +1,18 @@
 import { useEffect, useRef } from "react"
 import createImageIdsAndCacheMetaData from "./lib/createImageIdsAndCacheMetaData"
-import { RenderingEngine, Enums, type Types, volumeLoader, cornerstoneStreamingImageVolumeLoader, setVolumesForViewports } from "@cornerstonejs/core"
-import { init as csRenderInit } from "@cornerstonejs/core"
+import {
+  RenderingEngine,
+  CONSTANTS,
+  Enums,
+  type Types,
+  volumeLoader,
+  cornerstoneStreamingImageVolumeLoader,
+  setVolumesForViewports,
+  getEnabledElement,
+  init as csRenderInit,
+  VolumeViewport3D,
+  getRenderingEngine
+} from "@cornerstonejs/core"
 import {
   init as csToolsInit,
   ToolGroupManager,
@@ -9,148 +20,196 @@ import {
   WindowLevelTool,
   Enums as csToolsEnums,
   addTool,
+  LengthTool,
+  TrackballRotateTool,
   BidirectionalTool,
   segmentation,
   BrushTool,
+  PanTool,
   StackScrollTool,
   SynchronizerManager,
-  synchronizers
+  synchronizers,
+  type Types as csToolsTypes,
 } from "@cornerstonejs/tools"
 import { init as dicomImageLoaderInit } from "@cornerstonejs/dicom-image-loader"
 
 const { createCameraPositionSynchronizer, createVOISynchronizer } = synchronizers;
 
+const { MouseBindings, KeyboardBindings } = csToolsEnums;
 
 volumeLoader.registerUnknownVolumeLoader(
   cornerstoneStreamingImageVolumeLoader
 )
 
+const renderingEngineId = "myRenderingEngine"
+const threeId = 'threeDViewportId';
+const rendering3DEngineId = 'my3DRenderingEngine';
+
+const volumeId = "streamingImageVolume"
+const segmentationId = 'MY_SEGMENTATION_ID';
+
+
 function App() {
   const elementRef = useRef<HTMLDivElement>(null)
   const elementRef1 = useRef<HTMLDivElement>(null)
   const elementRef2 = useRef<HTMLDivElement>(null)
+  const threeDRef = useRef<HTMLDivElement>(null)
   const running = useRef(false)
 
   useEffect(() => {
-    const setup = async () => {
-      if (running.current) {
-        return
-      }
-      running.current = true
-
-      await csRenderInit()
-      await csToolsInit()
-      dicomImageLoaderInit({ maxWebWorkers: 1 })
-
-      // Get Cornerstone imageIds and fetch metadata into RAM
-      const imageIds = await createImageIdsAndCacheMetaData({
-        StudyInstanceUID:
-          "1.3.6.1.4.1.14519.5.2.1.7009.2403.334240657131972136850343327463",
-        SeriesInstanceUID:
-          "1.3.6.1.4.1.14519.5.2.1.7009.2403.226151125820845824875394858561",
-        wadoRsRoot: "https://d3t6nz73ql33tx.cloudfront.net/dicomweb",
-      })
-
-      // Instantiate a rendering engine
-      const renderingEngineId = "myRenderingEngine"
-      const renderingEngine = new RenderingEngine(renderingEngineId)
-      const viewportId = "CT_SAGITTAL"
-      const viewportId1 = "CT_AXIAL"
-      const viewportId2 = "CT_CORONAL"
-      const segmentationId = 'MY_SEGMENTATION_ID';
-
-      const viewportInput = [{
-        viewportId,
-        type: Enums.ViewportType.ORTHOGRAPHIC,
-        element: elementRef.current,
-        defaultOptions: {
-          orientation: Enums.OrientationAxis.SAGITTAL,
-        },
-      },
-      {
-        viewportId: viewportId1,
-        type: Enums.ViewportType.ORTHOGRAPHIC,
-        element: elementRef1.current,
-        defaultOptions: {
-          orientation: Enums.OrientationAxis.AXIAL,
-        },
-      },
-      {
-        viewportId: viewportId2,
-        type: Enums.ViewportType.ORTHOGRAPHIC,
-        element: elementRef2.current,
-        defaultOptions: {
-          orientation: Enums.OrientationAxis.CORONAL,
-        },
-      }
-      ]
-
-      // renderingEngine.enableElement(viewportInput)
-      renderingEngine.setViewports(viewportInput)
-
-      // Get the stack viewport that was created
-      // const viewport = renderingEngine.getViewport(viewportId) as Types.IVolumeViewport
-
-      // Define a volume in memory
-      const volumeId = "streamingImageVolume"
-      const volume = await volumeLoader.createAndCacheVolume(volumeId, {
-        imageIds,
-      })
-
-      await volumeLoader.createAndCacheDerivedLabelmapVolume(volumeId, {
-        volumeId: segmentationId,
-      });
-
-      segmentation.addSegmentations([
-        {
-          segmentationId,
-          representation: {
-            // The type of segmentation
-            type: csToolsEnums.SegmentationRepresentations.Labelmap,
-            // The actual segmentation data, in the case of labelmap this is a
-            // reference to the source volume of the segmentation.
-            data: {
-              volumeId: segmentationId,
-            },
-          },
-        },
-      ]);
-
-      // Set the volume to load
-      volume.load()
-      setVolumesForViewports(
-        renderingEngine,
-        [{
-          volumeId,
-          callback: ({ volumeActor }) => {
-            // set the windowLevel after the volumeActor is created
-            console.log(volumeActor);
-
-            volumeActor
-              .getProperty()
-              .getRGBTransferFunction(0)
-              .setMappingRange(-180, 220);
-          },
-        }],
-        viewportInput.map((vp) => vp.viewportId)
-      )
-
-
-      setTimeout(() => {
-        setSync(viewportInput, renderingEngine)
-      }, 5000)
-      await addTools(viewportInput.map((vp) => vp.viewportId), renderingEngineId, segmentationId)
-      // Set the volume on the viewport and it's default properties
-      // viewport.setVolumes([{ volumeId }])
-      renderingEngine.renderViewports(viewportInput.map((vp) => vp.viewportId));
-      // Render the image
-      // viewport.render()
-    }
-
     setup()
-
     // Create a stack viewport
   }, [elementRef, running])
+
+  async function init3D() {
+    // const canvas = document.createElement('canvas');
+    // canvas.style.width = '100%';
+    // canvas.style.height = '100%';
+    // threeDRef.current.appendChild(canvas);
+
+    // const renderingEngine = getRenderingEngine(renderingEngineId);
+    const toolGroupId = 'TOOL_GROUP_ID';
+
+    // Define a tool group, which defines how mouse events map to tool commands for
+    // Any viewport using the group
+    const toolGroup = ToolGroupManager.createToolGroup(toolGroupId);
+
+    // Add the tools to the tool group and specify which volume they are pointing at
+    addManipulationBindings(toolGroup, {
+      is3DViewport: true,
+    });
+    const renderingEngine = new RenderingEngine(rendering3DEngineId);
+
+    const viewportInputArray = [{
+      viewportId: threeId,
+      type: Enums.ViewportType.VOLUME_3D,
+      element: threeDRef.current,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.CORONAL,
+        background: CONSTANTS.BACKGROUND_COLORS.slicer3D,
+      },
+    }]
+    renderingEngine.setViewports(viewportInputArray);
+    toolGroup.addViewport(threeId, rendering3DEngineId);
+
+    const viewport = renderingEngine.getViewport(threeId);
+
+    await setVolumesForViewports(
+      renderingEngine,
+      [{ volumeId }],
+      [threeId]
+    ).then(() => {
+      viewport.setProperties({
+        preset: 'CT-Bone',
+      });
+      viewport.render();
+    });
+
+    // renderingEngine.renderViewports([threeId]);
+  }
+
+  async function initMPR() {
+    volumeLoader.createAndCacheDerivedLabelmapVolume(volumeId, {
+      volumeId: segmentationId,
+    });
+
+    // Instantiate a rendering engine
+    const renderingEngine = new RenderingEngine(renderingEngineId)
+    const viewportId = "CT_SAGITTAL"
+    const viewportId1 = "CT_AXIAL"
+    const viewportId2 = "CT_CORONAL"
+
+    const viewportInput = [{
+      viewportId,
+      type: Enums.ViewportType.ORTHOGRAPHIC,
+      element: elementRef.current,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.SAGITTAL,
+      },
+    },
+    {
+      viewportId: viewportId1,
+      type: Enums.ViewportType.ORTHOGRAPHIC,
+      element: elementRef1.current,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.AXIAL,
+      },
+    },
+    {
+      viewportId: viewportId2,
+      type: Enums.ViewportType.ORTHOGRAPHIC,
+      element: elementRef2.current,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.CORONAL,
+      },
+    }
+    ]
+
+    // renderingEngine.enableElement(viewportInput)
+    renderingEngine.setViewports(viewportInput)
+
+    segmentation.addSegmentations([
+      {
+        segmentationId,
+        representation: {
+          type: csToolsEnums.SegmentationRepresentations.Labelmap,
+          data: {
+            volumeId: segmentationId,
+          },
+        },
+      },
+    ]);
+
+
+    setTimeout(() => {
+      setSync(viewportInput, renderingEngine)
+    }, 5000)
+
+    await addTools(viewportInput.map((vp) => vp.viewportId), renderingEngineId, segmentationId)
+
+    setVolumesForViewports(
+      renderingEngine,
+      [{
+        volumeId,
+        callback: ({ volumeActor }) => {
+          volumeActor
+            .getProperty()
+            .getRGBTransferFunction(0)
+            .setMappingRange(-180, 220);
+        },
+      }],
+      [...(viewportInput.map((vp) => vp.viewportId))]
+    )
+    renderingEngine.renderViewports([...(viewportInput.map((vp) => vp.viewportId))]);
+  }
+
+  const setup = async () => {
+    if (running.current) {
+      return
+    }
+    running.current = true
+
+    await csRenderInit()
+    await csToolsInit()
+    dicomImageLoaderInit({ maxWebWorkers: 6 })
+
+    // Get Cornerstone imageIds and fetch metadata into RAM
+    const imageIds = await createImageIdsAndCacheMetaData({
+      StudyInstanceUID:
+        "1.3.6.1.4.1.14519.5.2.1.7009.2403.334240657131972136850343327463",
+      SeriesInstanceUID:
+        "1.3.6.1.4.1.14519.5.2.1.7009.2403.226151125820845824875394858561",
+      wadoRsRoot: "https://d3t6nz73ql33tx.cloudfront.net/dicomweb",
+    })
+
+    const volume = await volumeLoader.createAndCacheVolume(volumeId, {
+      imageIds,
+    })
+    volume.load()
+
+    init3D()
+    // initMPR()
+  }
 
   function setSync(viewportIds: any[], renderingEngine: any) {
     // const axialSync = createCameraPositionSynchronizer('axialSync');
@@ -248,6 +307,140 @@ function App() {
     });
   }
 
+  function addManipulationBindings(toolGroup: any, options: any) {
+    const zoomBindings: csToolsTypes.IToolBinding[] = [
+      {
+        mouseButton: MouseBindings.Secondary,
+      },
+    ];
+
+    const {
+      is3DViewport = false,
+      enableShiftClickZoom = false,
+      toolMap = new Map(),
+    } = options;
+
+    if (enableShiftClickZoom === true) {
+      zoomBindings.push({
+        mouseButton: MouseBindings.Primary, // Shift Left Click
+        modifierKey: KeyboardBindings.Shift,
+      });
+    }
+
+    addTool(PanTool);
+    addTool(ZoomTool);
+    addTool(TrackballRotateTool);
+    addTool(LengthTool);
+    addTool(StackScrollTool);
+    for (const [, config] of toolMap) {
+      if (config.tool) {
+        addTool(config.tool);
+      }
+    }
+
+
+    toolGroup.addTool(PanTool.toolName);
+    // Allow significant zooming to occur
+    toolGroup.addTool(ZoomTool.toolName, {
+      minZoomScale: 0.001,
+      maxZoomScale: 4000,
+    });
+    if (is3DViewport) {
+      toolGroup.addTool(TrackballRotateTool.toolName);
+    } else {
+      toolGroup.addTool(StackScrollTool.toolName);
+    }
+    toolGroup.addTool(LengthTool.toolName);
+    toolGroup.addTool(StackScrollTool.toolName);
+
+    toolGroup.setToolActive(PanTool.toolName, {
+      bindings: [
+        {
+          mouseButton: MouseBindings.Auxiliary,
+        },
+        {
+          numTouchPoints: 1,
+          modifierKey: KeyboardBindings.Ctrl,
+        },
+      ],
+    });
+    toolGroup.setToolActive(ZoomTool.toolName, {
+      bindings: zoomBindings,
+    });
+    // Need a binding to navigate without a wheel mouse
+    toolGroup.setToolActive(StackScrollTool.toolName, {
+      bindings: [
+        {
+          mouseButton: MouseBindings.Primary,
+          modifierKey: KeyboardBindings.Alt,
+        },
+        {
+          numTouchPoints: 1,
+          modifierKey: KeyboardBindings.Alt,
+        },
+        {
+          mouseButton: MouseBindings.Wheel,
+        },
+      ],
+    });
+    // Add a length tool binding to allow testing annotations on examples targetting
+    // other use cases.  Use a primary button with shift+ctrl as that is relatively
+    // unlikely to be otherwise used.
+    toolGroup.setToolActive(LengthTool.toolName, {
+      bindings: [
+        {
+          mouseButton: MouseBindings.Primary,
+          modifierKey: KeyboardBindings.ShiftCtrl,
+        },
+        {
+          numTouchPoints: 1,
+          modifierKey: KeyboardBindings.ShiftCtrl,
+        },
+      ],
+    });
+
+    if (is3DViewport) {
+      toolGroup.setToolActive(TrackballRotateTool.toolName, {
+        bindings: [
+          {
+            mouseButton: MouseBindings.Primary,
+          },
+        ],
+      });
+    } else {
+      toolGroup.setToolActive(StackScrollTool.toolName);
+    }
+
+    for (const [toolName, config] of toolMap) {
+      if (config.baseTool) {
+        if (!toolGroup.hasTool(config.baseTool)) {
+          toolGroup.addTool(
+            config.baseTool,
+            toolMap.get(config.baseTool)?.configuration
+          );
+        }
+        toolGroup.addToolInstance(
+          toolName,
+          config.baseTool,
+          config.configuration
+        );
+      } else if (!toolGroup.hasTool(toolName)) {
+        toolGroup.addTool(toolName, config.configuration);
+      }
+      if (config.passive) {
+        toolGroup.setToolPassive(toolName);
+      }
+      if (config.bindings || config.selected) {
+        toolGroup.setToolActive(
+          toolName,
+          (config.bindings && config) || {
+            bindings: [{ mouseButton: MouseBindings.Primary }],
+          }
+        );
+      }
+    }
+  }
+
   return (
     <>
       <div
@@ -274,6 +467,14 @@ function App() {
           backgroundColor: "#000",
         }}
       ></div>
+      <div
+        ref={threeDRef}
+        style={{
+          width: "512px",
+          height: "512px",
+          backgroundColor: "#000",
+        }}
+      />
     </>
   )
 }
