@@ -78,32 +78,10 @@ function App() {
     addManipulationBindings(toolGroup, {
       is3DViewport: true,
     });
-    const renderingEngine = new RenderingEngine(rendering3DEngineId);
 
-    const viewportInputArray = [{
-      viewportId: threeId,
-      type: Enums.ViewportType.VOLUME_3D,
-      element: threeDRef.current,
-      defaultOptions: {
-        orientation: Enums.OrientationAxis.CORONAL,
-        background: CONSTANTS.BACKGROUND_COLORS.slicer3D,
-      },
-    }]
-    renderingEngine.setViewports(viewportInputArray);
-    toolGroup.addViewport(threeId, rendering3DEngineId);
+    toolGroup.addViewport(threeId, renderingEngineId);
 
-    const viewport = renderingEngine.getViewport(threeId);
 
-    await setVolumesForViewports(
-      renderingEngine,
-      [{ volumeId }],
-      [threeId]
-    ).then(() => {
-      viewport.setProperties({
-        preset: 'CT-Bone',
-      });
-      viewport.render();
-    });
 
     // renderingEngine.renderViewports([threeId]);
   }
@@ -142,6 +120,15 @@ function App() {
       defaultOptions: {
         orientation: Enums.OrientationAxis.CORONAL,
       },
+    },
+    {
+      viewportId: threeId,
+      type: Enums.ViewportType.VOLUME_3D,
+      element: threeDRef.current,
+      defaultOptions: {
+        orientation: Enums.OrientationAxis.CORONAL,
+        background: CONSTANTS.BACKGROUND_COLORS.slicer3D,
+      },
     }
     ]
 
@@ -160,14 +147,15 @@ function App() {
       },
     ]);
 
+    const MPRViewPorts = [viewportId, viewportId1, viewportId2];
 
     setTimeout(() => {
       setSync(viewportInput, renderingEngine)
     }, 5000)
 
-    await addTools(viewportInput.map((vp) => vp.viewportId), renderingEngineId, segmentationId)
+    await addTools(MPRViewPorts, renderingEngineId, segmentationId)
 
-    setVolumesForViewports(
+    await setVolumesForViewports(
       renderingEngine,
       [{
         volumeId,
@@ -178,9 +166,17 @@ function App() {
             .setMappingRange(-180, 220);
         },
       }],
-      [...(viewportInput.map((vp) => vp.viewportId))]
+      viewportInput.map((vp) => vp.viewportId)
     )
-    renderingEngine.renderViewports([...(viewportInput.map((vp) => vp.viewportId))]);
+
+    const viewport = renderingEngine.getViewport(threeId);
+
+    viewport.setProperties({
+      preset: 'CT-Bone',
+    });
+    viewport.render();
+
+    renderingEngine.renderViewports(viewportInput.map((vp) => vp.viewportId));
   }
 
   const setup = async () => {
@@ -207,8 +203,8 @@ function App() {
     })
     volume.load()
 
+    await initMPR()
     init3D()
-    // initMPR()
   }
 
   function setSync(viewportIds: any[], renderingEngine: any) {
