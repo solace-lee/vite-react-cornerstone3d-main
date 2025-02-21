@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import Surface from './Surface.tsx'
-import Nifti from './Nifti.tsx'
+// import Nifti from './Nifti.tsx'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

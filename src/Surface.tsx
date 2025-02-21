@@ -77,8 +77,6 @@ function Surface() {
   async function init() {
     if (initStatus) return;
     initStatus = true
-    console.log('哈哈哈');
-
     await csRenderInit()
     await cornerstoneTools.init()
     dicomImageLoaderInit({ maxWebWorkers: 6 })
@@ -89,10 +87,12 @@ function Surface() {
     initTools()
 
     await initSegment()
-    
+
   }
 
   async function convert() {
+    console.log('哈哈哈', import.meta.url);
+
     await segmentation.addSegmentationRepresentations(viewportId3, [
       {
         segmentationId,
@@ -176,7 +176,7 @@ function Surface() {
         type: ViewportType.VOLUME_3D,
         element: threeDRef.current,
         defaultOptions: {
-          background: CONSTANTS.BACKGROUND_COLORS.slicer3D,
+          // background: CONSTANTS.BACKGROUND_COLORS.slicer3D,
         },
       },
     ];
@@ -213,7 +213,7 @@ function Surface() {
     const toolGroup2 = ToolGroupManager.createToolGroup(toolGroupId2);
 
 
-    addManipulationBindings(toolGroup1);
+    addManipulationBindings(toolGroup1, { is3DViewport: false });
     addManipulationBindings(toolGroup2, { is3DViewport: true });
 
     toolGroup1.addToolInstance('SphereBrush', BrushTool.toolName, {
@@ -291,7 +291,7 @@ function setCtTransferFunctionForVolumeActor({ volumeActor }) {
     .setMappingRange(lower, upper);
 }
 
-function addManipulationBindings(toolGroup: any, options = {}) {
+function addManipulationBindings(toolGroup: any, options: any) {
   const zoomBindings: cornerstoneTools.Types.IToolBinding[] = [
     {
       mouseButton: MouseBindings.Secondary,
