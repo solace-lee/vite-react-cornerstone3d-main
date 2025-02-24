@@ -58,7 +58,8 @@ const toolGroupId2 = 'ToolGroup_3D';
 // Create the viewports
 const viewportId1 = 'CT_AXIAL';
 const viewportId2 = 'CT_SAGITTAL';
-const viewportId3 = 'CT_3D';
+const viewportId3 = 'CT_CORONAL';
+const threeDViewportId = 'CT_3D';
 
 const segmentIndexes = [1, 2, 3, 4, 5];
 
@@ -93,7 +94,7 @@ function Surface() {
   async function convert() {
     console.log('哈哈哈', import.meta.url);
 
-    await segmentation.addSegmentationRepresentations(viewportId3, [
+    await segmentation.addSegmentationRepresentations(threeDViewportId, [
       {
         segmentationId,
         type: csToolsEnums.SegmentationRepresentations.Surface,
@@ -103,7 +104,7 @@ function Surface() {
 
   async function initSegment() {
     const renderingEngine = getRenderingEngine(renderingEngineId);
-    const volumeActor = renderingEngine.getViewport(viewportId3).getDefaultActor()
+    const volumeActor = renderingEngine.getViewport(threeDViewportId).getDefaultActor()
       .actor as Types.VolumeActor;
     utilities.applyPreset(
       volumeActor,
@@ -173,6 +174,14 @@ function Surface() {
       },
       {
         viewportId: viewportId3,
+        type: Enums.ViewportType.ORTHOGRAPHIC,
+        element: elementRef2.current,
+        defaultOptions: {
+          orientation: Enums.OrientationAxis.CORONAL,
+        },
+      },
+      {
+        viewportId: threeDViewportId,
         type: ViewportType.VOLUME_3D,
         element: threeDRef.current,
         defaultOptions: {
@@ -186,7 +195,7 @@ function Surface() {
     await setVolumesForViewports(
       renderingEngine,
       [{ volumeId, callback: setCtTransferFunctionForVolumeActor }],
-      [viewportId1, viewportId2, viewportId3]
+      [viewportId1, viewportId2, viewportId3, threeDViewportId]
     );
   }
 
@@ -199,6 +208,9 @@ function Surface() {
         '1.3.12.2.1107.5.2.32.35162.1999123112191238897317963.0.0.0',
       wadoRsRoot: 'https://d14fa38qiwhyfd.cloudfront.net/dicomweb',
     });
+
+    console.log('哈哈哈imageIds', imageIds);
+    
 
     const volume = await volumeLoader.createAndCacheVolume(volumeId, {
       imageIds,
@@ -233,7 +245,8 @@ function Surface() {
 
     toolGroup1.addViewport(viewportId1, renderingEngineId);
     toolGroup1.addViewport(viewportId2, renderingEngineId);
-    toolGroup2.addViewport(viewportId3, renderingEngineId);
+    toolGroup1.addViewport(viewportId3, renderingEngineId);
+    toolGroup2.addViewport(threeDViewportId, renderingEngineId);
   }
 
   return (

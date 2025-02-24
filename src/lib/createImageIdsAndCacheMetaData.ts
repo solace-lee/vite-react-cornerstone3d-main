@@ -57,8 +57,5 @@ export default async function createImageIdsAndCacheMetaData({
     return imageId
   })
 
-  // we don't want to add non-pet
-  // Note: for 99% of scanners SUV calculation is consistent bw slices
-
   return imageIds
 }
